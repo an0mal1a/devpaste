@@ -14,23 +14,8 @@ use modules::CreatePaste;
 pub mod modules;
 pub mod utils;
 
-
-#[tokio::main]
-async fn main(){
-    let app: Router = Router::new()
-        .route("/", get(health_check))
-        .route("/pastes", get(get_all_pastes))
-        .route("/pastes", post(create_paste_endpoint))
-        .route("/pastes/{id}", get(get_paste))
-        .route("/pastes/{id}", delete(remove_paste_endpoint));
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    println!("Running on http://localhost:8080");
-    axum::serve(listener, app).await.unwrap()
-}
-
 async fn get_all_pastes() -> Json<Value> {
-    let pastes = match utils::read_all_pastes() {
+    let pastes = match utils::read_all_pastes(utils::create_connection().unwrap()) {
         Ok(pastes) => pastes,
         Err(msg) => return Json(json!({
             "status": "ko",
@@ -105,4 +90,24 @@ async fn health_check() -> Json<Value> {
         "status": "ok",
         "message": "Server is running perfectly"
     }))
+}
+
+
+#[tokio::main]
+async fn main(){
+    match utils::initialize_database() {
+        Ok(_) => { println!("Database initializated"); },
+        Err(e) => { println!("Error initializating database: {}", e); return }
+    } 
+
+    let app: Router = Router::new()
+        .route("/", get(health_check))
+        .route("/pastes", get(get_all_pastes))
+        .route("/pastes", post(create_paste_endpoint))
+        .route("/pastes/{id}", get(get_paste))
+        .route("/pastes/{id}", delete(remove_paste_endpoint));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    println!("Running on http://localhost:8080");
+    axum::serve(listener, app).await.unwrap()
 }

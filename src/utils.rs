@@ -1,4 +1,3 @@
-use std::fs;
 use crate::modules::{CreatePaste, Paste};
 
 // pub const PATH: &str = "pastes.json";
@@ -31,11 +30,13 @@ pub fn initialize_database() -> Result<(), String> {
 }
 
 
-pub fn read_all_pastes(conn: rusqlite::Connection) -> Result<Vec<Paste>, String> {
-    let query = "
-        SELECT * FROM pastebins WHERE public = TRUE AND is_protected = FALSE;
-    ";
+pub fn read_all_pastes() -> Result<Vec<Paste>, String> {
+    let conn: rusqlite::Connection = match create_connection() {
+        Ok(conn) => conn,
+        Err(e) => return Err(e.to_string()) 
+    };
 
+    let query = "SELECT * FROM pastebins WHERE public = TRUE AND is_protected = FALSE;";
     let mut stmt = match conn.prepare(query) {
         Ok(stmt) => stmt,
         Err(e) => { return Err(e.to_string()) }
@@ -89,8 +90,10 @@ pub fn read_paste(id: i32) -> Result<Paste, String> {
 
 
 pub fn create_paste(paste_data: CreatePaste) -> Result<i32, String> {
-    let conn = create_connection()?;
-    // let query = "INSERT INTO pastebins (title, content, is_protected, public) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id";
+    let conn = match create_connection() {
+        Ok(conn) => conn, 
+        Err(e) => return Err(e.to_string())
+    };
     let query = "INSERT INTO pastebins (title, content, is_protected, public) VALUES (?1, ?2, ?3, ?4)";
 
     match conn.execute(query, (paste_data.title, paste_data.content, false, paste_data.public)) {
@@ -100,22 +103,14 @@ pub fn create_paste(paste_data: CreatePaste) -> Result<i32, String> {
 }
 
 pub fn remove_paste(id: i32) -> Result<i32, String> {
-    let conn = create_connection()?;
-    let pastes = read_all_pastes(conn)?;
-    let pastes = pastes.iter().filter(|p| p.id != id).cloned().collect();
-
-    save_pastes(pastes, id)
-}
-
-
-fn save_pastes(pastes: Vec<Paste>, id: i32) -> Result<i32, String> {
-    let content: String = match serde_json::to_string_pretty(&pastes) {
-        Ok(v) => v,
+    let conn = match create_connection() {
+        Ok(conn) => conn,
         Err(e) => return Err(e.to_string())
     };
 
-    match fs::write(PATH, content) {
-        Ok(_) => return Ok(id),
+    let query = "DELETE from pastebins WHERE id = ?1";
+    match conn.execute(query, [id]) {
+        Ok(_) => Ok(id),
         Err(e) => return Err(e.to_string())
     }
 }

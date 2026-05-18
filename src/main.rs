@@ -15,7 +15,7 @@ pub mod modules;
 pub mod utils;
 
 async fn get_all_pastes() -> Json<Value> {
-    let pastes = match utils::read_all_pastes(utils::create_connection().unwrap()) {
+    let pastes = match utils::read_all_pastes() {
         Ok(pastes) => pastes,
         Err(msg) => return Json(json!({
             "status": "ko",
@@ -107,7 +107,7 @@ async fn main(){
         .route("/pastes/{id}", get(get_paste))
         .route("/pastes/{id}", delete(remove_paste_endpoint));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    println!("Running on http://localhost:8080");
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8081").await.unwrap();
+    println!("Running on http://localhost:8081");
     axum::serve(listener, app).await.unwrap()
 }

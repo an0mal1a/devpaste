@@ -74,12 +74,12 @@ This introduced:
 The latest changes add more realistic paste behavior:
 
 - Public pastes
-- Unlisted pastes
+- Unlisted pastes -> 🟡 Return an hash url of content + title
 - Password-protected pastes
 - Protected pastes are automatically hidden from the public list
 - Paste responses no longer expose the stored password
 
-> By the time im writing this, the password is stored in plain text, its 2:36AM and i dont really care, good night.
+> (hello, this is fixed btw) By the time im writing this, the password is stored in plain text, its 2:36AM and i dont really care, good night.
 
 This is still intentionally simple, but it makes the API closer to how a pastebin service would behave.
 

@@ -69,8 +69,10 @@ async fn create_paste_endpoint(Json(data): Json<CreatePaste>) -> Json<Value> {
 }
 
 
-async fn remove_paste_endpoint(Path(id): Path<i32>) -> Json<Value> {
-    match utils::remove_paste(id) {
+async fn remove_paste_endpoint(Path(id): Path<i32>, data: Option<Json<PasteRequest>>) -> Json<Value> {
+    let password = data.and_then(|Json(body)| body.password);
+
+    match utils::remove_paste(id, password) {
         Ok(id) => { 
             return Json(json!({
                 "status": "ok",

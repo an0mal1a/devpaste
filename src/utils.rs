@@ -1,7 +1,16 @@
+
 use crate::modules::{CreatePaste, PasteResponse, Paste};
 
 // pub const PATH: &str = "pastes.json";
 pub const PATH: &str = "pastes.sql";
+
+// Hashing function
+fn hash_password(password: Option<String>) -> String {
+    match password {
+        Some(pwd) => blake3::hash(pwd.as_bytes()).to_hex().to_string(),
+        None => String::new(),
+    }
+}
 
 // SQLITE Functions
 pub fn create_connection() -> Result<rusqlite::Connection, String> {
@@ -86,7 +95,7 @@ pub fn read_paste(id: i32, password: Option<String>) -> Result<PasteResponse, St
         })
     }).map_err(|e| e.to_string())?;
 
-    if paste.is_protected && password.as_deref() != Some(paste.password.as_str()) { 
+    if paste.is_protected && hash_password(password) != paste.password.as_str() { 
         return Err("Paste is password protected".to_string())
     }
 
@@ -111,16 +120,21 @@ pub fn create_paste(paste_data: CreatePaste) -> Result<i32, String> {
     // Construct query
     let query = "INSERT INTO pastebins (title, content, is_protected, password, public) VALUES (?1, ?2, ?3, ?4, ?5)";
 
-    match conn.execute(query, (paste_data.title, paste_data.content, is_protected, paste_data.password, is_public)) {
+    match conn.execute(query, (paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), is_public)) {
         Ok(v) => Ok(v as i32),
         Err(e) => Err(e.to_string())
     }
 }
 
-pub fn remove_paste(id: i32) -> Result<i32, String> {
+pub fn remove_paste(id: i32, password: Option<String>) -> Result<i32, String> {
     let conn = match create_connection() {
         Ok(conn) => conn,
         Err(e) => return Err(e.to_string())
+    };
+
+    match read_paste(id, password) {
+        Ok(p) => p,
+        Err(e) => return Err(e)
     };
 
     let query = "DELETE from pastebins WHERE id = ?1";

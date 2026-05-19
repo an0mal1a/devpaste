@@ -1,4 +1,6 @@
 
+use constant_time_eq::constant_time_eq;
+
 use crate::modules::{CreatePaste, PasteResponse, Paste};
 
 // pub const PATH: &str = "pastes.json";
@@ -10,6 +12,15 @@ fn hash_password(password: Option<String>) -> String {
         Some(pwd) => blake3::hash(pwd.as_bytes()).to_hex().to_string(),
         None => String::new(),
     }
+}
+
+fn verify_password(password: Option<String>, stored_hash: &str) -> bool {
+    let Some(password) = password else {
+        return false
+    };
+
+    let input_hash = blake3::hash(password.as_bytes()).to_hex().to_string();
+    constant_time_eq(input_hash.as_bytes(), stored_hash.as_bytes())
 }
 
 // SQLITE Functions
@@ -95,7 +106,7 @@ pub fn read_paste(id: i32, password: Option<String>) -> Result<PasteResponse, St
         })
     }).map_err(|e| e.to_string())?;
 
-    if paste.is_protected && hash_password(password) != paste.password.as_str() { 
+    if paste.is_protected && verify_password(password, paste.password.as_str()) { 
         return Err("Paste is password protected".to_string())
     }
 

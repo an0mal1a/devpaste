@@ -1,4 +1,4 @@
-use crate::modules::{CreatePaste, Paste};
+use crate::modules::{CreatePaste, PasteResponse, Paste};
 
 // pub const PATH: &str = "pastes.json";
 pub const PATH: &str = "pastes.sql";
@@ -18,6 +18,7 @@ pub fn initialize_database() -> Result<(), String> {
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             is_protected BOOLEAN,
+            password TEXT,
             public BOOLEAN,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP 
         )
@@ -30,7 +31,7 @@ pub fn initialize_database() -> Result<(), String> {
 }
 
 
-pub fn read_all_pastes() -> Result<Vec<Paste>, String> {
+pub fn read_all_pastes() -> Result<Vec<PasteResponse>, String> {
     let conn: rusqlite::Connection = match create_connection() {
         Ok(conn) => conn,
         Err(e) => return Err(e.to_string()) 
@@ -43,34 +44,33 @@ pub fn read_all_pastes() -> Result<Vec<Paste>, String> {
     };
 
     let pastes_iter = stmt.query_map([], |row| {
-        Ok(Paste{
+        Ok(PasteResponse{
             id: row.get(0)?,
             title: row.get(1)?,
             content: row.get(2)?,
             is_protected: row.get(3)?,
-            public: row.get(4)?,
-            created_at: row.get(5)?
+            public: row.get(5)?,
+            created_at: row.get(6)?
         })
     }).map_err(|e| e.to_string())?;
 
-    let mut pastes: Vec<Paste> = Vec::new();
+    let mut pastes: Vec<PasteResponse> = Vec::new();
     for paste in pastes_iter {
         let paste = match paste {
             Ok(p) => p,
             Err(e) => { return Err(e.to_string()) }
         };
 
-        pastes.push(paste);
+        pastes.push(paste)
     }
-
 
     Ok(pastes)
 }
 
 
-pub fn read_paste(id: i32) -> Result<Paste, String> {
+pub fn read_paste(id: i32, password: Option<String>) -> Result<PasteResponse, String> {
     let conn = create_connection()?;
-    let query = "SELECT * FROM pastes WHERE id = ?1 AND is_protected = FALSE";
+    let query = "SELECT * FROM pastebins WHERE id = ?1";
 
     let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
     
@@ -80,12 +80,17 @@ pub fn read_paste(id: i32) -> Result<Paste, String> {
             title: row.get(1)?,
             content: row.get(2)?,
             is_protected: row.get(3)?,
-            public: row.get(4)?,
-            created_at: row.get(5)?
+            password: row.get(4)?,
+            public: row.get(5)?,
+            created_at: row.get(6)?
         })
     }).map_err(|e| e.to_string())?;
 
-    Ok(paste)
+    if paste.is_protected && password.as_deref() != Some(paste.password.as_str()) { 
+        return Err("Paste is password protected".to_string())
+    }
+
+    Ok(paste.into())
 }
 
 
@@ -94,9 +99,19 @@ pub fn create_paste(paste_data: CreatePaste) -> Result<i32, String> {
         Ok(conn) => conn, 
         Err(e) => return Err(e.to_string())
     };
-    let query = "INSERT INTO pastebins (title, content, is_protected, public) VALUES (?1, ?2, ?3, ?4)";
 
-    match conn.execute(query, (paste_data.title, paste_data.content, false, paste_data.public)) {
+    // Password protected
+    let mut is_protected: bool = false;
+    let mut is_public: bool = paste_data.public;
+    if !paste_data.password.is_empty() { 
+        is_protected = true; 
+        is_public = false;
+    }
+
+    // Construct query
+    let query = "INSERT INTO pastebins (title, content, is_protected, password, public) VALUES (?1, ?2, ?3, ?4, ?5)";
+
+    match conn.execute(query, (paste_data.title, paste_data.content, is_protected, paste_data.password, is_public)) {
         Ok(v) => Ok(v as i32),
         Err(e) => Err(e.to_string())
     }

@@ -138,9 +138,10 @@ At this stage the project is focused on learning core Rust backend concepts rath
 
 Planned improvements and experiments:
 
-* SQLite support            
-* Private/unlisted pastes   
-* Password-protected pastes 
+* SQLite support 🟢
+* Private/unlisted pastes 🟢
+* Password-protected pastes 🟢
+* Crypted password-protected pastes (like if the user has a pro plan can crypt)
 
 * PostgreSQL / MySQL support
 * Expiring pastes

@@ -8,7 +8,7 @@ use axum::{
 use serde_json::{json, Value};
 
 // Internal dependencies
-use modules::CreatePaste;
+use modules::{CreatePaste, PasteRequest};
 
 // Modules
 pub mod modules;
@@ -31,8 +31,10 @@ async fn get_all_pastes() -> Json<Value> {
     }))   
 }
 
-async fn get_paste(Path(id): Path<i32>) -> Json<Value> {
-    match utils::read_paste(id) {
+async fn get_paste(Path(id): Path<i32>, data: Option<Json<PasteRequest>>) -> Json<Value> {
+    let password = data.and_then(|Json(body)| body.password);
+    
+    match utils::read_paste(id, password) {
         Ok(p) => {
             return Json(json!({
                 "status": "ok",

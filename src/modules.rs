@@ -20,6 +20,7 @@ pub struct Paste {
     pub content: String,
     pub is_protected: bool,
     pub password: String,
+    pub slug: Option<String>,
     pub public: bool,
     pub created_at: String
 }

@@ -103,7 +103,7 @@ pub fn read_all_pastes() -> Result<Vec<PasteResponse>, String> {
 
 pub fn read_paste(id: i32) -> Result<PasteResponse, String> {
     let conn = create_connection()?;
-    let query = "SELECT * FROM pastebins WHERE id = ?1";
+    let query = "SELECT id, title, content, is_protected, password, slug, public, created_at FROM pastebins WHERE id = ?1";
 
     let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
     
@@ -183,7 +183,7 @@ pub fn create_paste(paste_data: CreatePaste) -> Result<(i32, Option<String>), St
     let query = "INSERT INTO pastebins (title, content, is_protected, password, slug, public) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id";
     let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
 
-    match stmt.query_row([paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), &slug, is_public], |row| {
+    match stmt.query_row((paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), &slug, is_public), |row| {
         row.get(0)
     }) {
         Ok(id) => Ok((id, slug)),

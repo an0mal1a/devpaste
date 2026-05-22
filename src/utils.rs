@@ -107,7 +107,7 @@ pub fn read_paste(id: i32) -> Result<PasteResponse, String> {
 
     let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
     
-    let paste = stmt.query_row([id], |row| {
+    let paste = match stmt.query_row([id], |row| {
         Ok(Paste{
             id: row.get(0)?,
             title: row.get(1)?,
@@ -118,7 +118,11 @@ pub fn read_paste(id: i32) -> Result<PasteResponse, String> {
             public: row.get(6)?,
             created_at: row.get(7)?
         })
-    }).map_err(|e| e.to_string())?;
+    }) {
+        Ok(paste) => paste,
+        Err(Error::QueryReturnedNoRows) => return Err("Paste not found".to_string()),
+        Err(e) => return Err(e.to_string())
+    };
 
     if !paste.public {
         return Err("Paste not found".to_string());
@@ -189,11 +193,6 @@ pub fn create_paste(paste_data: CreatePaste) -> Result<(i32, Option<String>), St
         Ok(id) => Ok((id, slug)),
         Err(e) => Err(e.to_string())
     }
-
-    // match conn.execute(query, (paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), &slug, is_public)) {
-    //     Ok(v) => Ok((v as i32, slug)),
-    //     Err(e) => Err(e.to_string())
-    // }
 }
 
 pub fn remove_paste(id: i32, password: Option<String>) -> Result<i32, String> {

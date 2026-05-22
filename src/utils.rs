@@ -180,12 +180,20 @@ pub fn create_paste(paste_data: CreatePaste) -> Result<(i32, Option<String>), St
     if !is_public { slug = Some(generate_paste_slug(&paste_data.title, &paste_data.content)) }
 
     // Construct query
-    let query = "INSERT INTO pastebins (title, content, is_protected, password, slug, public) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
+    let query = "INSERT INTO pastebins (title, content, is_protected, password, slug, public) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id";
+    let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
 
-    match conn.execute(query, (paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), &slug, is_public)) {
-        Ok(v) => Ok((v as i32, slug)),
+    match stmt.query_row([paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), &slug, is_public], |row| {
+        row.get(0)
+    }) {
+        Ok(id) => Ok((id, slug)),
         Err(e) => Err(e.to_string())
     }
+
+    // match conn.execute(query, (paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), &slug, is_public)) {
+    //     Ok(v) => Ok((v as i32, slug)),
+    //     Err(e) => Err(e.to_string())
+    // }
 }
 
 pub fn remove_paste(id: i32, password: Option<String>) -> Result<i32, String> {

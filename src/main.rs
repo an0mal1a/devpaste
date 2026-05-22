@@ -71,10 +71,11 @@ async fn get_paste_slug(Path(slug): Path<String>, data: Option<Json<PasteRequest
 
 async fn create_paste_endpoint(Json(data): Json<CreatePaste>) -> Json<Value> {
     match utils::create_paste(data) {
-        Ok(id) => { 
+        Ok(d) => { 
             return Json(json!({
                 "status": "ok",
-                "id": id
+                "id": d.0,
+                "slug": d.1
             }))
         },
         Err(msg) => {

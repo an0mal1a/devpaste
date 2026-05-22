@@ -2,6 +2,8 @@
 use constant_time_eq::constant_time_eq;
 use crate::modules::{CreatePaste, PasteResponse, Paste};
 
+use rusqlite::Error;
+
 // pub const PATH: &str = "pastes.json";
 pub const PATH: &str = "pastes.sql";
 
@@ -99,7 +101,7 @@ pub fn read_all_pastes() -> Result<Vec<PasteResponse>, String> {
 }
 
 
-pub fn read_paste(id: i32, password: Option<String>) -> Result<PasteResponse, String> {
+pub fn read_paste(id: i32) -> Result<PasteResponse, String> {
     let conn = create_connection()?;
     let query = "SELECT * FROM pastebins WHERE id = ?1";
 
@@ -118,10 +120,7 @@ pub fn read_paste(id: i32, password: Option<String>) -> Result<PasteResponse, St
         })
     }).map_err(|e| e.to_string())?;
 
-    if paste.is_protected && !verify_password(password, paste.password.as_str()) { 
-        return Err("Paste is password protected".to_string())
-    
-    } else if !paste.public {
+    if !paste.public {
         return Err("Paste not found".to_string());
     }
 
@@ -160,7 +159,7 @@ pub fn read_paste_slug(slug: String, password: Option<String>) -> Result<PasteRe
 
 }
 
-pub fn create_paste(paste_data: CreatePaste) -> Result<i32, String> {
+pub fn create_paste(paste_data: CreatePaste) -> Result<(i32, Option<String>), String> {
     let conn = match create_connection() {
         Ok(conn) => conn, 
         Err(e) => return Err(e.to_string())
@@ -171,24 +170,20 @@ pub fn create_paste(paste_data: CreatePaste) -> Result<i32, String> {
     let mut is_public: bool = paste_data.public;
     let mut slug: Option<String>= None;
     
-    // Check if its not puyblic
-    if !is_public {
-        slug = if !is_public {
-            Some(generate_paste_slug(&paste_data.title, &paste_data.content))
-        } else { None };
-    }
-
     // Check if has password
     if !paste_data.password.is_empty() { 
         is_protected = true; 
         is_public = false;
     }
 
+    // Check if its not puyblic
+    if !is_public { slug = Some(generate_paste_slug(&paste_data.title, &paste_data.content)) }
+
     // Construct query
     let query = "INSERT INTO pastebins (title, content, is_protected, password, slug, public) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
 
-    match conn.execute(query, (paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), slug, is_public)) {
-        Ok(v) => Ok(v as i32),
+    match conn.execute(query, (paste_data.title, paste_data.content, is_protected, hash_password(Some(paste_data.password)), &slug, is_public)) {
+        Ok(v) => Ok((v as i32, slug)),
         Err(e) => Err(e.to_string())
     }
 }
@@ -199,10 +194,18 @@ pub fn remove_paste(id: i32, password: Option<String>) -> Result<i32, String> {
         Err(e) => return Err(e.to_string())
     };
 
-    match read_paste(id, password) {
+    let query = "SELECT password FROM pastebins WHERE id = ?1";
+    let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
+
+    let stored_hash: String = match stmt.query_row([id], | row | { 
+        row.get(0) 
+    }) {
         Ok(p) => p,
-        Err(e) => return Err(e)
+        Err(Error::QueryReturnedNoRows) => return Err("Paste dont exist.".to_string()),
+        Err(e) => return Err(e.to_string())
     };
+
+    if !verify_password(password, stored_hash.as_str()) { return Err("Password Incorrect".to_string()) }
 
     let query = "DELETE from pastebins WHERE id = ?1";
     match conn.execute(query, [id]) {

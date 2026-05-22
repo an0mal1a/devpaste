@@ -31,10 +31,8 @@ async fn get_all_pastes() -> Json<Value> {
     }))   
 }
 
-async fn get_paste(Path(id): Path<i32>, data: Option<Json<PasteRequest>>) -> Json<Value> {
-    let password = data.and_then(|Json(body)| body.password);
-    
-    match utils::read_paste(id, password) {
+async fn get_paste(Path(id): Path<i32>) -> Json<Value> { 
+    match utils::read_paste(id) {
         Ok(p) => {
             return Json(json!({
                 "status": "ok",

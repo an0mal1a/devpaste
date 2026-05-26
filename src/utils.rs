@@ -7,6 +7,10 @@ use rusqlite::Error;
 // pub const PATH: &str = "pastes.json";
 pub const PATH: &str = "pastes.sql";
 
+fn database_path() -> String {
+    std::env::var("DEVPASTE_DB_PATH").unwrap_or_else(|_| PATH.to_string())
+}
+
 // Hashing function
 fn hash_password(password: Option<String>) -> String {
     match password {
@@ -37,12 +41,12 @@ fn generate_paste_slug(title: &String, content: &String) -> String {
 
 // SQLITE Functions
 pub fn create_connection() -> Result<rusqlite::Connection, String> {
-    rusqlite::Connection::open(PATH)
+    rusqlite::Connection::open(database_path())
         .map_err(|e| e.to_string())
 }
 
 pub fn initialize_database() -> Result<(), String> {
-    let conn = rusqlite::Connection::open(PATH).unwrap();
+    let conn = create_connection()?;
 
     let query = "
         CREATE TABLE IF NOT EXISTS pastebins (
@@ -212,7 +216,7 @@ pub fn remove_paste(id: i32, password: Option<String>) -> Result<i32, String> {
         Err(e) => return Err(e.to_string())
     };
 
-    if !verify_password(password, stored_hash.as_str()) { return Err("Password Incorrect".to_string()) }
+    if !stored_hash.is_empty() && !verify_password(password, stored_hash.as_str()) { return Err("Password Incorrect".to_string()) }
 
     let query = "DELETE from pastebins WHERE id = ?1";
     match conn.execute(query, [id]) {

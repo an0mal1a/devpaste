@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize}; 
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreatePaste {
     pub title: String,
     pub content: String,
@@ -25,7 +25,7 @@ pub struct Paste {
     pub created_at: String
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PasteResponse {
     pub id: i32,
     pub title: String,

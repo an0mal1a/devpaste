@@ -74,7 +74,7 @@ This introduced:
 The latest changes add more realistic paste behavior:
 
 - Public pastes
-- Unlisted pastes -> 🟡 Return an hash url of content + title
+- Unlisted pastes -> 🟢 Return an hash url of content + title
 - Password-protected pastes
 - Protected pastes are automatically hidden from the public list
 - Paste responses no longer expose the stored password
@@ -262,18 +262,18 @@ At this stage the project is focused on learning core Rust backend concepts rath
 
 Planned improvements and experiments:
 
-- Password hashing
+- Password hashing 🟢
+- Better error handling 🟢
 - Expiring pastes
-- Better error handling
 - Middleware and logging
 - JWT authentication
 - Rate limiting
 - Shared application state
 - Async database drivers
 - PostgreSQL / MySQL support
-- Syntax highlighting
 - Docker support
-- Web frontend
+- Syntax highlighting (maybe)
+- Web frontend (maybe)
 
 ---
 

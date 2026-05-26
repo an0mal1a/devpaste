@@ -1,12 +1,12 @@
-# DevPaste
+# DevPaste 🦀
 
 A small pastebin-style REST API built with Rust, Axum, Tokio and SQLite.
 
-This project was created mainly as a way to learn Rust backend development, async programming, API architecture and persistence while building something practical and progressively improving it step by step.
+This project was created mainly as a way to learn Rust backend development, async programming, API architecture, persistence and testing while building something practical and progressively improving it over time.
 
 The goal is not to create a production-ready Pastebin clone, but to understand how modern Rust backend applications are structured and how async Rust works in real-world scenarios.
 
-DevPaste did not start with all the current features. The project is evolving gradually: first a basic Axum API, then simple persistence, then SQLite, and now extra paste visibility and protection features.
+DevPaste did not start with all the current features. It started as a tiny Axum API, then got file persistence, then SQLite, then visibility/password rules, and now a small test suite to stop breaking things while changing the code.
 
 ---
 
@@ -23,6 +23,10 @@ Current implemented features:
 - JSON REST API
 - SQLite persistence with `rusqlite`
 - Automatic database/table initialization
+- Password hashing with BLAKE3
+- Constant-time password hash comparison
+- Slug-based access for unlisted/protected pastes
+- Function-level tests using isolated SQLite databases
 - Async HTTP server with Tokio
 - Axum routing and extractors
 
@@ -71,17 +75,34 @@ This introduced:
 
 ### Visibility and protection
 
-The latest changes add more realistic paste behavior:
+Later changes added more realistic paste behavior:
 
 - Public pastes
-- Unlisted pastes -> 🟢 Return an hash url of content + title
+- Unlisted pastes -> return a hash-based slug
 - Password-protected pastes
+- Passwords are stored as hashes, not plain text
 - Protected pastes are automatically hidden from the public list
 - Paste responses no longer expose the stored password
+- Reading private pastes by numeric id returns the same error as a missing paste
 
-> (hello, this is fixed btw) By the time im writing this, the password is stored in plain text, its 2:36AM and i dont really care, good night.
+> This started with passwords stored in plain text at 2:36AM. That was bad, but also part of the learning process. It now stores hashes instead.
 
 This is still intentionally simple, but it makes the API closer to how a pastebin service would behave.
+
+### Tests
+
+The latest step was adding function-level tests.
+
+This introduced:
+
+- A `src/lib.rs` file so the project logic can be imported from integration tests
+- Tests for creating public, unlisted and protected pastes
+- Tests for reading public pastes, slug access and hidden/private behavior
+- Tests for deleting public and protected pastes
+- Temporary SQLite databases for tests through `DEVPASTE_DB_PATH`
+- A first safety net before doing larger refactors
+
+The tests are not HTTP/API tests yet. They currently test the Rust functions directly, which keeps them simpler while learning the basics.
 
 ---
 
@@ -91,6 +112,8 @@ This is still intentionally simple, but it makes the API closer to how a pastebi
 - Axum
 - Tokio
 - Serde / Serde JSON
+- BLAKE3
+- constant_time_eq
 - Rusqlite
 - SQLite
 
@@ -131,6 +154,18 @@ Returns only pastes that are public and not password protected.
 
 ```http
 GET /pastes/{id}
+```
+
+Protected and unlisted pastes are not readable from this endpoint by id.
+
+Use the slug endpoint for unlisted/protected pastes.
+
+---
+
+### Get a paste by slug
+
+```http
+GET /p/{slug}
 ```
 
 If the paste is password protected, send the password in the JSON body:
@@ -192,6 +227,14 @@ Notes:
 DELETE /pastes/{id}
 ```
 
+If the paste is password protected, send the password in the JSON body:
+
+```json
+{
+  "password": "secret"
+}
+```
+
 ---
 
 ## Running locally
@@ -227,16 +270,35 @@ pastes.sql
 
 ```txt
 src/
+|-- lib.rs
 |-- main.rs
 |-- modules.rs
 `-- utils.rs
+
+tests/
+|-- common/
+|-- create_paste.rs
+|-- delete_paste.rs
+`-- read_paste.rs
 ```
 
 ### Main files
 
+- `src/lib.rs`: exposes the modules so integration tests can import the project logic.
 - `src/main.rs`: Axum router, endpoint handlers and server startup.
 - `src/modules.rs`: Request/response/data structs.
 - `src/utils.rs`: SQLite connection, database initialization and paste operations.
+- `tests/`: function-level integration tests for paste creation, reading and deletion.
+
+---
+
+## Running tests
+
+```bash
+cargo test
+```
+
+Tests use isolated SQLite database files under `target/test-dbs` instead of touching the normal `pastes.sql` file.
 
 ---
 
@@ -246,13 +308,15 @@ This project is intentionally simple and currently has several known limitations
 
 - No authentication
 - No authorization for deleting pastes
-- Passwords are stored in plain text
-- No password hashing or encryption
+- Password hashing is intentionally simple and does not use salts yet
 - No async database driver
 - No validation layer
 - Minimal error handling
+- Most errors are still plain strings instead of typed errors
+- API errors still return JSON bodies instead of proper HTTP status mapping
 - No pagination for listing pastes
 - SQLite database file is local to the project
+- Tests currently cover functions, not real HTTP requests
 
 At this stage the project is focused on learning core Rust backend concepts rather than optimization or production readiness.
 
@@ -263,7 +327,8 @@ At this stage the project is focused on learning core Rust backend concepts rath
 Planned improvements and experiments:
 
 - Password hashing 🟢
-- Better error handling 🟢
+- Function-level tests 🟢
+- Better typed error handling
 - Expiring pastes
 - Middleware and logging
 - JWT authentication
@@ -272,6 +337,9 @@ Planned improvements and experiments:
 - Async database drivers
 - PostgreSQL / MySQL support
 - Docker support
+
+## Future ideas (most probably not)
+
 - Syntax highlighting (maybe)
 - Web frontend (maybe)
 
@@ -289,6 +357,8 @@ This project is helping me understand:
 - JSON extractors
 - SQLite persistence
 - SQL queries from Rust
+- Integration tests
+- Test isolation with temporary database files
 - Ownership and borrowing in backend code
 - Result-based error handling
 - API architecture
@@ -301,4 +371,4 @@ This project is helping me understand:
 
 This is an experimental learning project and the codebase will evolve heavily over time as I continue exploring Rust backend development.
 
-Contributions, suggestions and code reviews are always welcome.
+Contributions, suggestions and code reviews are always welcome 😄
